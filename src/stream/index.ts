@@ -56,7 +56,6 @@ export class Stream implements StreamInterface {
     waitUntil ??= period;
     let isRunning = true;
     let value = 0;
-    let timerId = null;
     let firstYieldDone = false;
 
     const newStream = new Stream(async function* () {
@@ -69,6 +68,26 @@ export class Stream implements StreamInterface {
       return;
     });
     return newStream;
+  }
+
+  map<T>(mapFn: (value: T) => T) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function*() {
+        for await (const value of oldStream()) {
+             yield mapFn(value as T);
+        }
+    }
+    return this;
+  }
+
+  filter<T>(predicateFn: (value: T) => boolean) {
+    let oldStream = this.streamGenerator;
+        this.streamGenerator = async function*() {
+        for await (const value of oldStream()) {
+             if(predicateFn(value as T)) yield value;
+        }
+    }
+    return this;
   }
 
   subscribe(
