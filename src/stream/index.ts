@@ -1,6 +1,7 @@
 import { StreamInterface } from "./stream";
 import { awaitableTimeout } from "../util/awaitableTimeout";
 import { raceWithIndex } from "../util/raceWithIndex";
+import { yieldFromQueue } from "../util/generatorFromQueue";
 
 export class Stream implements StreamInterface {
   private queue: unknown[];
@@ -73,35 +74,35 @@ export class Stream implements StreamInterface {
 
   map<T>(mapFn: (value: T) => T) {
     let oldStream = this.streamGenerator;
-    this.streamGenerator = async function*() {
-        for await (const value of oldStream()) {
-             yield mapFn(value as T);
-        }
-    }
+    this.streamGenerator = async function* () {
+      for await (const value of oldStream()) {
+        yield mapFn(value as T);
+      }
+    };
     return this;
   }
 
   filter<T>(predicateFn: (value: T) => boolean) {
     let oldStream = this.streamGenerator;
-        this.streamGenerator = async function*() {
-        for await (const value of oldStream()) {
-             if(predicateFn(value as T)) yield value;
-        }
-    }
+    this.streamGenerator = async function* () {
+      for await (const value of oldStream()) {
+        if (predicateFn(value as T)) yield value;
+      }
+    };
     return this;
   }
 
   repeat(count: number, delay?: number | Function) {
     let oldStream = this.streamGenerator;
-    this.streamGenerator = async function*() {
+    this.streamGenerator = async function* () {
       for (let i = 0; i < count; i++) {
         yield* oldStream();
-        if(delay && i < count - 1) {
-          const timeoutDelay = typeof delay === 'function' ? delay(i + 1) : delay;
+        if (delay && i < count - 1) {
+          const timeoutDelay = typeof delay === "function" ? delay(i + 1) : delay;
           await awaitableTimeout(timeoutDelay);
         }
       }
-    }
+    };
     return this;
   }
 
@@ -123,35 +124,92 @@ export class Stream implements StreamInterface {
     const allStreams = [this, ...streams].map((stream) => stream.generator());
     this.streamGenerator = async function* () {
       let activePromises = allStreams.map((stream) => stream.next());
-      while(allStreams.length > 0) {
+      while (allStreams.length > 0) {
         const { result, index } = await raceWithIndex(activePromises);
-        if(result.done) {
-          activePromises.splice(index, 1);    // remove the result from active promises 
-          allStreams.splice(index, 1);   // remove the stream too
+        if (result.done) {
+          activePromises.splice(index, 1); // remove the result from active promises
+          allStreams.splice(index, 1); // remove the stream too
         } else {
           yield result.value;
-          activePromises[index] = allStreams[index].next();  // replace the result from the next yield of the same stream
+          activePromises[index] = allStreams[index].next(); // replace the result from the next yield of the same stream
         }
       }
-    }
+    };
     return this;
   }
 
   zip(...streams: Stream[]) {
     const allStreams = [this, ...streams].map((stream) => stream.generator());
-    this.streamGenerator = async function*() {
-      while(allStreams.length > 0) {
+    this.streamGenerator = async function* () {
+      while (allStreams.length > 0) {
         const completedResults = await Promise.all(allStreams.map((stream) => stream.next()));
-        const results = completedResults.filter((result, index) => {
-          if(result.done) {
-            allStreams.splice(index, 1);    // remove the stream
-            return false;
-          }
-          return true;
-        }).map((result) => result.value);
-        if(results.length > 0) yield results;
+        const results = completedResults
+          .filter((result, index) => {
+            if (result.done) {
+              allStreams.splice(index, 1); // remove the stream
+              return false;
+            }
+            return true;
+          })
+          .map((result) => result.value);
+        if (results.length > 0) yield results;
       }
-    }
+    };
+    return this;
+  }
+
+  debounce(delay: number) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function* () {
+      let queue: unknown[] = [];
+      let streamCompleted = false;
+      // use IIFE to asynchronously iterate over the stream
+      (async () => {
+        let timerId: number | null = null;
+        for await (const value of oldStream()) {
+          timerId && clearTimeout(timerId);
+          timerId = setTimeout(() => {
+            queue.push(value);
+          }, delay);
+        }
+        // gotta use setTimeout, else it omits last value(s) from the queue :/
+        setTimeout(() => {
+          streamCompleted = true;
+        }, delay);
+      })();
+      // yield values from "yieldFromQueue" generator
+      yield* yieldFromQueue(queue, () => streamCompleted === true);
+    };
+    return this;
+  }
+
+  // quite similar to debounce
+  throttle(delay: number) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function* () {
+      let queue: unknown[] = [];
+      let streamCompleted = false;
+      // use IIFE to asynchronously iterate over the stream
+      (async () => {
+        let emitting: boolean = false;
+        for await (const value of oldStream()) {
+          if (emitting === true) continue;
+          else {
+            emitting = true;
+            queue.push(value);
+            setTimeout(() => {
+              emitting = false;
+            }, delay);
+          }
+        }
+        // gotta use setTimeout, else it omits last value(s) from the queue :/
+        setTimeout(() => {
+          streamCompleted = true;
+        }, delay);
+      })();
+      // yield values from "yieldFromQueue" generator
+      yield* yieldFromQueue(queue, () => streamCompleted === true);
+    };
     return this;
   }
 
