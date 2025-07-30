@@ -3,6 +3,7 @@ import { awaitableTimeout } from "../util/awaitableTimeout";
 import { raceWithIndex } from "../util/raceWithIndex";
 import { yieldFromQueue } from "../util/generatorFromQueue";
 
+// TODO: change all quees to linked lists
 export class Stream implements StreamInterface {
   private queue: unknown[];
   private streamGenerator: () => AsyncGenerator<unknown, unknown, unknown> = async function* () {}; // yielded type, return type, passed type;
@@ -210,6 +211,77 @@ export class Stream implements StreamInterface {
       // yield values from "yieldFromQueue" generator
       yield* yieldFromQueue(queue, () => streamCompleted === true);
     };
+    return this;
+  }
+
+  take(count: number) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function* () {
+      let yieldedCount = 0;
+      for await (const value of oldStream()) {
+        yield value;
+        yieldedCount++;
+        if (yieldedCount === count) break;
+      }
+    };
+    return this;
+  }
+
+  takeFirst(count: number) {
+    return this.take(count);
+  }
+
+  takeLast(count: number) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function* () {
+      let queue: unknown[] = new Array(count).fill(undefined);
+      for await (const value of oldStream()) {
+        // doesnt maintain the relative order of emitted values from the stream
+        // queue[index] = value;
+        // index = (index + 1) % count;  
+        if(queue.length === count) queue.shift();
+        queue.push(value);
+      }
+      yield* queue;
+    }
+    return this;
+  }
+
+  takeUntil(predicateFn: (value: unknown) => boolean) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function* () {
+      for await (const value of oldStream()) {
+        yield value;
+        if (predicateFn(value) === true) break;
+      }
+    }
+    return this;
+  }
+
+  skip(count: number) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function* () {
+      let skippedCount = 0;
+      for await (const value of oldStream()) {
+        if (skippedCount < count) {
+          skippedCount++;
+          continue;
+        }
+        yield value;
+      }
+    }
+    return this;
+  }
+
+  skipUntil(predicateFn: (value: unknown) => boolean) {
+    let oldStream = this.streamGenerator;
+    let conditionMet = false;
+    this.streamGenerator = async function* () {
+      for await (const value of oldStream()) {
+        if (predicateFn(value) === true) conditionMet = true;
+        if (conditionMet === true) yield value;
+      }
+    }
     return this;
   }
 
