@@ -324,6 +324,9 @@ export class Stream implements StreamInterface {
     return this;
   }
 
+  // for pushing in the queue
+  serialize(value: unknown): void {}
+
   subscribe(
     onValue: (value: unknown) => void,
     onError?: (error: unknown) => void,
