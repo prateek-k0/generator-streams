@@ -2,6 +2,7 @@ import { StreamInterface } from "./stream";
 import { awaitableTimeout } from "../util/awaitableTimeout";
 import { raceWithIndex } from "../util/raceWithIndex";
 import { yieldFromQueue } from "../util/generatorFromQueue";
+import { unsettledPromise } from "../util/unsettledPromise";
 
 // TODO: change all quees to linked lists
 export class Stream implements StreamInterface {
@@ -107,6 +108,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
+  // to return the internal generator
   generator() {
     return this.streamGenerator();
   }
@@ -154,6 +156,32 @@ export class Stream implements StreamInterface {
           })
           .map((result) => result.value);
         if (results.length > 0) yield results;
+      }
+    };
+    return this;
+  }
+
+  zipLatest(...streams: Stream[]) {
+    const allStreams = [this, ...streams].map((stream) => stream.generator());
+    this.streamGenerator = async function* () {
+      const zippedResults = new Array(allStreams.length).fill(undefined);
+      let completedStreams = 0;
+      let activePromises = allStreams.map((stream) => stream.next());
+      // for first yield, zipLatest waits for all streams to emit atleast once
+      const firstResults = await Promise.all(activePromises);
+      for (let i = 0; i < allStreams.length; zippedResults[i] = firstResults[i].value, i++);
+      yield zippedResults.slice();
+      // for consecutive yields
+      while (completedStreams < allStreams.length) {
+        const { result, index } = await raceWithIndex(activePromises);
+        if (result.done) {
+          completedStreams++;
+          activePromises[index] = unsettledPromise();
+        } else {
+          zippedResults[index] = result.value;
+          activePromises[index] = allStreams[index].next();
+        }
+        yield zippedResults.slice();
       }
     };
     return this;
@@ -238,12 +266,12 @@ export class Stream implements StreamInterface {
       for await (const value of oldStream()) {
         // doesnt maintain the relative order of emitted values from the stream
         // queue[index] = value;
-        // index = (index + 1) % count;  
-        if(queue.length === count) queue.shift();
+        // index = (index + 1) % count;
+        if (queue.length === count) queue.shift();
         queue.push(value);
       }
       yield* queue;
-    }
+    };
     return this;
   }
 
@@ -254,7 +282,7 @@ export class Stream implements StreamInterface {
         yield value;
         if (predicateFn(value) === true) break;
       }
-    }
+    };
     return this;
   }
 
@@ -269,7 +297,7 @@ export class Stream implements StreamInterface {
         }
         yield value;
       }
-    }
+    };
     return this;
   }
 
@@ -281,7 +309,18 @@ export class Stream implements StreamInterface {
         if (predicateFn(value) === true) conditionMet = true;
         if (conditionMet === true) yield value;
       }
-    }
+    };
+    return this;
+  }
+
+  until(predicateFn: (value: unknown) => boolean) {
+    let oldStream = this.streamGenerator;
+    this.streamGenerator = async function* () {
+      for await (const value of oldStream()) {
+        yield value;
+        if (predicateFn(value) === true) break;
+      }
+    };
     return this;
   }
 

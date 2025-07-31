@@ -22,6 +22,7 @@ import { Stream } from "./stream/index";
 // Stream.interval(500, 0).take(5).subscribe(console.log);
 // Stream.interval(500, 0).take(5).takeLast(3).subscribe(console.log);
 // Stream.interval(500, 0).takeFirst(5).subscribe(console.log);
-// Stream.interval(500, 0).takeUntil((value) => (value === 5)).subscribe(console.log)
+// Stream.interval(500, 0).until((value) => (value === 5)).subscribe(console.log)
 // Stream.interval(500, 0).skip(3).subscribe(console.log);
-Stream.interval(500, 0).skipUntil((value) => (value === 5)).subscribe(console.log)
+// Stream.interval(500, 0).skipUntil((value) => (value === 5)).subscribe(console.log)
+Stream.interval(500, 0).take(15).zipLatest(Stream.interval(1000, 0).take(5)).subscribe(console.log);
