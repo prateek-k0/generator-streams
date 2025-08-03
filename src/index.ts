@@ -26,3 +26,11 @@ import { Stream } from "./stream/index";
 // Stream.interval(500, 0).skip(3).subscribe(console.log);
 // Stream.interval(500, 0).skipUntil((value) => (value === 5)).subscribe(console.log)
 // Stream.interval(500, 0).take(15).zipLatest(Stream.interval(1000, 0).take(5)).subscribe(console.log);
+
+let value = 1;
+const stream = new Stream();
+stream.subscribe(console.log);
+
+setInterval(() => {
+    stream.serialize(value++);
+}, 1000);

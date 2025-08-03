@@ -11,7 +11,18 @@ export class Stream implements StreamInterface {
 
   constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) {
     this.queue = [];
-    generatorFunction && (this.streamGenerator = generatorFunction);
+    if(generatorFunction) {
+      this.streamGenerator = generatorFunction;
+    } else {
+      this.streamGenerator = async function*() {
+        yield* yieldFromQueue(this.queue, () => false);
+      }
+    }
+  }
+
+    // TODO: for pushing in the queue
+  serialize(value: unknown): void {
+    this.queue.push(value);
   }
 
   static of(...args: unknown[]): Stream {
@@ -323,9 +334,6 @@ export class Stream implements StreamInterface {
     };
     return this;
   }
-
-  // TODO: for pushing in the queue
-  serialize(value: unknown): void {}
 
   subscribe(
     onValue: (value: unknown) => void,
