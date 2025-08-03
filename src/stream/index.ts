@@ -192,8 +192,8 @@ export class Stream implements StreamInterface {
     this.streamGenerator = async function* () {
       let queue: unknown[] = [];
       let streamCompleted = false;
-      // use IIFE to asynchronously iterate over the stream
-      (async () => {
+      // shedule consumer for oldStream as a microtask, or use IIFE
+      queueMicrotask(async () => {
         let timerId: number | null = null;
         for await (const value of oldStream()) {
           timerId && clearTimeout(timerId);
@@ -205,7 +205,7 @@ export class Stream implements StreamInterface {
         setTimeout(() => {
           streamCompleted = true;
         }, delay);
-      })();
+      });
       // yield values from "yieldFromQueue" generator
       yield* yieldFromQueue(queue, () => streamCompleted === true);
     };
@@ -218,8 +218,8 @@ export class Stream implements StreamInterface {
     this.streamGenerator = async function* () {
       let queue: unknown[] = [];
       let streamCompleted = false;
-      // use IIFE to asynchronously iterate over the stream
-      (async () => {
+      // shedule consumer for oldStream as a microtask, or use IIFE
+      queueMicrotask(async () => {
         let emitting: boolean = false;
         for await (const value of oldStream()) {
           if (emitting === true) continue;
@@ -235,7 +235,7 @@ export class Stream implements StreamInterface {
         setTimeout(() => {
           streamCompleted = true;
         }, delay);
-      })();
+      });
       // yield values from "yieldFromQueue" generator
       yield* yieldFromQueue(queue, () => streamCompleted === true);
     };
@@ -324,7 +324,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  // for pushing in the queue
+  // TODO: for pushing in the queue
   serialize(value: unknown): void {}
 
   subscribe(
@@ -333,7 +333,8 @@ export class Stream implements StreamInterface {
     onComplete?: () => void
   ) {
     let isSubscribed: boolean = true;
-    (async () => {
+    // or use IIFE, instead of using a microtask
+    queueMicrotask(async () => {
       try {
         for await (const value of this.streamGenerator()) {
           if (!isSubscribed) {
@@ -346,7 +347,7 @@ export class Stream implements StreamInterface {
       } finally {
         onComplete && onComplete();
       }
-    })();
+    });
     return () => {
       isSubscribed = false;
     };
