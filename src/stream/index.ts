@@ -3,6 +3,7 @@ import { awaitableTimeout } from "../util/awaitableTimeout";
 import { raceWithIndex } from "../util/raceWithIndex";
 import { yieldFromQueue } from "../util/generatorFromQueue";
 import { unsettledPromise } from "../util/unsettledPromise";
+import * as q from "../util/Queue";
 
 // TODO: change all quees to linked lists
 export class Stream implements StreamInterface {
