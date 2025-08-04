@@ -1,18 +1,18 @@
-class QueueNode {
-  data: unknown;
-  prev: QueueNode | null;
-  next: QueueNode | null;
+class QueueNode<T> {
+  data: T;
+  prev: QueueNode<T> | null;
+  next: QueueNode<T> | null;
 
-  constructor(data: unknown) {
+  constructor(data: T) {
     this.data = data;
     this.prev = null;
     this.next = null;
   }
 }
 
-export class Queue {
-  front: QueueNode | null;
-  rear: QueueNode | null;
+export class Queue<T> {
+  front: QueueNode<T> | null;
+  rear: QueueNode<T> | null;
 
   constructor() {
     this.front = null;
@@ -23,7 +23,7 @@ export class Queue {
     return this.front === null;
   }
 
-  enqueue(data: unknown) {
+  enqueue(data: T) {
     const newNode = new QueueNode(data);
     if (this.isEmpty()) {
       this.front = this.rear = newNode;
@@ -50,19 +50,25 @@ export class Queue {
     }
   }
 
-   peek() {
+  peek() {
     return this.isEmpty() ? null : this.front?.data;
   }
 
   display() {
     let current = this.front;
-    let output = '';
+    let output = "";
     while (current) {
-      output += current.data + ' <-> ';
+      output += current.data + " <-> ";
       current = current.next;
     }
-    output += 'null';
+    output += "null";
     console.log(output);
+  }
+
+  *[Symbol.iterator]() {
+    for(let current = this.front; current; current = current.next) {
+        yield current.data;
+    }
   }
 }
 
@@ -76,5 +82,3 @@ q.dequeue();
 q.enqueue(5);
 q.enqueue(6);
 q.display();
-
-

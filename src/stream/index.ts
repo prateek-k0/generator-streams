@@ -3,27 +3,27 @@ import { awaitableTimeout } from "../util/awaitableTimeout";
 import { raceWithIndex } from "../util/raceWithIndex";
 import { yieldFromQueue } from "../util/generatorFromQueue";
 import { unsettledPromise } from "../util/unsettledPromise";
-import * as q from "../util/Queue";
+import { Queue } from "../util/Queue";
 
 // TODO: change all quees to linked lists
 export class Stream implements StreamInterface {
-  private queue: unknown[];
+  private queue: Queue<unknown>;
   private streamGenerator: () => AsyncGenerator<unknown, unknown, unknown> = async function* () {}; // yielded type, return type, passed type;
 
   constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) {
-    this.queue = [];
-    if(generatorFunction) {
+    this.queue = new Queue<unknown>();
+    if (generatorFunction) {
       this.streamGenerator = generatorFunction;
     } else {
-      this.streamGenerator = async function*() {
+      this.streamGenerator = async function* () {
         yield* yieldFromQueue(this.queue, () => false);
-      }
+      };
     }
   }
 
-    // TODO: for pushing in the queue
+  // TODO: for pushing in the queue
   serialize(value: unknown): void {
-    this.queue.push(value);
+    this.queue.enqueue(value);
   }
 
   static of(...args: unknown[]): Stream {
@@ -202,7 +202,7 @@ export class Stream implements StreamInterface {
   debounce(delay: number) {
     let oldStream = this.streamGenerator;
     this.streamGenerator = async function* () {
-      let queue: unknown[] = [];
+      let queue = new Queue<unknown>();
       let streamCompleted = false;
       // shedule consumer for oldStream as a microtask, or use IIFE
       queueMicrotask(async () => {
@@ -210,7 +210,7 @@ export class Stream implements StreamInterface {
         for await (const value of oldStream()) {
           timerId && clearTimeout(timerId);
           timerId = setTimeout(() => {
-            queue.push(value);
+            queue.enqueue(value);
           }, delay);
         }
         // gotta use setTimeout, else it omits last value(s) from the queue :/
@@ -228,7 +228,7 @@ export class Stream implements StreamInterface {
   throttle(delay: number) {
     let oldStream = this.streamGenerator;
     this.streamGenerator = async function* () {
-      let queue: unknown[] = [];
+      let queue = new Queue<unknown>();
       let streamCompleted = false;
       // shedule consumer for oldStream as a microtask, or use IIFE
       queueMicrotask(async () => {
@@ -237,7 +237,7 @@ export class Stream implements StreamInterface {
           if (emitting === true) continue;
           else {
             emitting = true;
-            queue.push(value);
+            queue.enqueue(value);
             setTimeout(() => {
               emitting = false;
             }, delay);
