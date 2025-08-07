@@ -66,19 +66,8 @@ export class Queue<T> {
   }
 
   *[Symbol.iterator]() {
-    for(let current = this.front; current; current = current.next) {
+    for(let current = this.front; current !== null; current = current.next) {
         yield current.data;
     }
   }
 }
-
-const q = new Queue();
-q.enqueue(1);
-q.enqueue(2);
-q.enqueue(3);
-q.enqueue(4);
-q.dequeue();
-q.dequeue();
-q.enqueue(5);
-q.enqueue(6);
-q.display();

@@ -4,11 +4,14 @@ import { raceWithIndex } from "../util/raceWithIndex";
 import { yieldFromQueue } from "../util/generatorFromQueue";
 import { unsettledPromise } from "../util/unsettledPromise";
 import { Queue } from "../util/Queue";
+import { UnsubscribeError } from "../util/UnsubscribeError";
+import { promisifyAbortController } from "../util/promisifyAbortController";
 
 // TODO: change all quees to linked lists
 export class Stream implements StreamInterface {
   private queue: Queue<unknown>;
   private streamGenerator: () => AsyncGenerator<unknown, unknown, unknown> = async function* () {}; // yielded type, return type, passed type;
+  private unsubscribeController = new AbortController();
 
   constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) {
     this.queue = new Queue<unknown>();
@@ -16,7 +19,7 @@ export class Stream implements StreamInterface {
       this.streamGenerator = generatorFunction;
     } else {
       this.streamGenerator = async function* () {
-        yield* yieldFromQueue(this.queue, () => false);
+        yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
       };
     }
   }
@@ -39,33 +42,6 @@ export class Stream implements StreamInterface {
     });
     return newStream;
   }
-
-  //   removing abortController support, use unsubscribe method returned from subsribe()
-  //   static interval(period?: number, waitUntil?: number, abortController?: AbortController) {
-  //     period ??= 1000;
-  //     waitUntil ??= period;
-  //     let isRunning = true;
-  //     let value = 0;
-  //     let timerId = null;
-  //     let firstYieldDone = false;
-
-  //     const newStream = new Stream(async function* () {
-  //       // on signal of abort controller, kill the timer
-  //       abortController &&
-  //         abortController.signal.addEventListener("abort", () => {
-  //           isRunning = false;
-  //           timerId && clearTimeout(timerId); // also removes any pre-existing timeouts in the callback queue
-  //         });
-  //       // run the loop
-  //       while (isRunning === true) {
-  //         await awaitableTimeout(firstYieldDone === false ? waitUntil : period);
-  //         yield value++;
-  //         firstYieldDone = true; // set to true, to never use waitUntil again
-  //       }
-  //       return;
-  //     });
-  //     return newStream;
-  //   }
 
   static interval(period?: number, waitUntil?: number) {
     period ??= 1000;
@@ -336,29 +312,36 @@ export class Stream implements StreamInterface {
     return this;
   }
 
+  // TODO: create a method to branch streams into 2
+
+
   subscribe(
     onValue: (value: unknown) => void,
     onError?: (error: unknown) => void,
     onComplete?: () => void
   ) {
-    let isSubscribed: boolean = true;
-    // or use IIFE, instead of using a microtask
+    this.unsubscribeController = new AbortController();
     queueMicrotask(async () => {
       try {
-        for await (const value of this.streamGenerator()) {
-          if (!isSubscribed) {
-            break;
-          }
+        const stream = this.streamGenerator();
+        while (true) {
+          const { value, done } = await Promise.race([
+            stream.next(),
+            promisifyAbortController(this.unsubscribeController, new UnsubscribeError()),
+          ]);
           onValue(value);
+          if (done) break;
         }
-      } catch (err) {
-        onError && onError(err);
-      } finally {
         onComplete && onComplete();
+      } catch (err) {
+        if (err instanceof UnsubscribeError) {
+          console.log(err.message);
+        }
+        else onError && onError(err);
       }
     });
     return () => {
-      isSubscribed = false;
-    };
+      this.unsubscribeController.abort();
+    }
   }
 }
