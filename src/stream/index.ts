@@ -111,6 +111,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
+  // TODO: try removing splice, change it to use unsettled promise instead, and use a counter to store completedStreams
   merge(...streams: Stream[]) {
     const allStreams = [this, ...streams].map((stream) => stream.generator());
     this.streamGenerator = async function* () {
@@ -129,6 +130,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
+  // TODO: try removing splice, change it to use unsettled promise instead, output undefined
   zip(...streams: Stream[]) {
     const allStreams = [this, ...streams].map((stream) => stream.generator());
     this.streamGenerator = async function* () {
