@@ -7,11 +7,11 @@ import { Queue } from "../util/Queue";
 import { UnsubscribeError } from "../util/UnsubscribeError";
 import { promisifyAbortController } from "../util/promisifyAbortController";
 
-// TODO: change all quees to linked lists
 export class Stream implements StreamInterface {
   private queue: Queue<unknown>;
   private streamGenerator: () => AsyncGenerator<unknown, unknown, unknown> = async function* () {}; // yielded type, return type, passed type;
   private unsubscribeController = new AbortController();
+  isSubscribed = false;
 
   constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) {
     this.queue = new Queue<unknown>();
@@ -24,7 +24,6 @@ export class Stream implements StreamInterface {
     }
   }
 
-  // TODO: for pushing in the queue
   serialize(value: unknown): void {
     this.queue.enqueue(value);
   }
@@ -62,7 +61,7 @@ export class Stream implements StreamInterface {
     return newStream;
   }
 
-  map<T>(mapFn: (value: T) => T) {
+  map<T>(mapFn: (value: T) => unknown) {
     let oldStream = this.streamGenerator;
     this.streamGenerator = async function* () {
       for await (const value of oldStream()) {
@@ -96,7 +95,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  // to return the internal generator
+  // to return the internal generator, for manual consumption
   generator() {
     return this.streamGenerator();
   }
@@ -111,16 +110,21 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  // TODO: try removing splice, change it to use unsettled promise instead, and use a counter to store completedStreams
+  // kept changes for splice commented, since i'm fucking skeptical
   merge(...streams: Stream[]) {
     const allStreams = [this, ...streams].map((stream) => stream.generator());
     this.streamGenerator = async function* () {
       let activePromises = allStreams.map((stream) => stream.next());
-      while (allStreams.length > 0) {
+      let completedStreams = 0;
+      // while (allStreams.length > 0) {
+      while (completedStreams < allStreams.length) {
         const { result, index } = await raceWithIndex(activePromises);
         if (result.done) {
-          activePromises.splice(index, 1); // remove the result from active promises
-          allStreams.splice(index, 1); // remove the stream too
+          // we dont need it anymore, since we are using unsettledPromise and completedStreams variable
+          // activePromises.splice(index, 1); // remove the result from active promises
+          // allStreams.splice(index, 1); // remove the stream too
+          completedStreams++; // update count for completed streams
+          activePromises[index] = unsettledPromise(); // remove the result from active promises
         } else {
           yield result.value;
           activePromises[index] = allStreams[index].next(); // replace the result from the next yield of the same stream
@@ -130,22 +134,39 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  // TODO: try removing splice, change it to use unsettled promise instead, output undefined
+  // kept changes for splice commented, since i'm fucking skeptical
   zip(...streams: Stream[]) {
     const allStreams = [this, ...streams].map((stream) => stream.generator());
     this.streamGenerator = async function* () {
-      while (allStreams.length > 0) {
-        const completedResults = await Promise.all(allStreams.map((stream) => stream.next()));
-        const results = completedResults
-          .filter((result, index) => {
-            if (result.done) {
-              allStreams.splice(index, 1); // remove the stream
-              return false;
-            }
-            return true;
-          })
-          .map((result) => result.value);
-        if (results.length > 0) yield results;
+      let completedStreams = 0;
+      let completedStreamsDict: { [key: number]: boolean } = {};
+      // while (allStreams.length > 0) {
+      // const completedResults = await Promise.all(allStreams.map((stream) => stream.next()));
+      // const results = completedResults
+      //   .filter((result, index) => {
+      //     if (result.done) {
+      //       allStreams.splice(index, 1); // remove the stream
+      //       return false;
+      //     }
+      //     return true;
+      //   })
+      //   .map((result) => result.value);
+      // if (results.length > 0) yield results;
+      // }
+      let activePromises = allStreams.map((stream) => stream.next());
+      const zippedResults = new Array(allStreams.length).fill(undefined); // similar to zipLatest
+      while (completedStreams < allStreams.length) {
+        const completedResults = await Promise.all(activePromises); // dropped map, since its slower, instead updated next yields in for-loop monotonically
+        for (let index = 0; index < allStreams.length; index++) { // changed to for-loop instead of map and filter
+          const result = completedResults[index];
+          if (result.done && completedStreamsDict[index] !== true) {
+            completedStreams++;
+            completedStreamsDict[index] = true; // mark this stream as completed
+          }
+          zippedResults[index] = result.value; // update the zipped results
+          activePromises[index] = allStreams[index].next(); // replace the result from the next yield of the same stream
+        }
+        if (completedStreams < allStreams.length) yield zippedResults.slice();
       }
     };
     return this;
@@ -202,7 +223,6 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  // quite similar to debounce
   throttle(delay: number) {
     let oldStream = this.streamGenerator;
     this.streamGenerator = async function* () {
@@ -316,13 +336,16 @@ export class Stream implements StreamInterface {
 
   // TODO: create a method to branch streams into 2
 
-
   subscribe(
     onValue: (value: unknown) => void,
     onError?: (error: unknown) => void,
     onComplete?: () => void
   ) {
+    if (this.isSubscribed === true) {
+      throw new UnsubscribeError("Stream is already subscribed, cannot subscribe again.");
+    }
     this.unsubscribeController = new AbortController();
+    this.isSubscribed = true;
     queueMicrotask(async () => {
       try {
         const stream = this.streamGenerator();
@@ -331,19 +354,22 @@ export class Stream implements StreamInterface {
             stream.next(),
             promisifyAbortController(this.unsubscribeController, new UnsubscribeError()),
           ]);
-          onValue(value);
           if (done) break;
+          onValue(value);
         }
         onComplete && onComplete();
       } catch (err) {
         if (err instanceof UnsubscribeError) {
-          console.log(err.message);
-        }
-        else onError && onError(err);
+          console.log(`UnsubscribeError: ${err.message}`);
+        } else onError && onError(err);
       }
     });
     return () => {
+      if (this.isSubscribed === false) {
+        throw new UnsubscribeError("Stream is not subscribed, cannot unsubscribe.");
+      }
+      this.isSubscribed = false;
       this.unsubscribeController.abort();
-    }
+    };
   }
 }
