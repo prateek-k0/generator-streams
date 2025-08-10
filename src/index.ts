@@ -9,13 +9,11 @@ import { Stream } from "./stream/index";
 // }, 5000);
 
 // Stream.from([1,2,3]).concat(Stream.from([4,5,6])).subscribe(console.log);
-const stream1 = Stream.interval(1000, 0).take(10);
-const stream2 = Stream.interval(1000, 0).take(5).map((val: number) => val * 2);
-const stream3 = Stream.interval(1000, 0).take(15).map((val: number) => val * 3);
+// const stream1 = Stream.interval(1000, 0).take(10);
+// const stream2 = Stream.interval(1000, 0).take(5).map((val: number) => val * 2);
+// const stream3 = Stream.interval(1000, 0).take(15).map((val: number) => val * 3);
 
-stream1.zip(stream2, stream3).subscribe(console.log, console.error);
-// const stream1 = Stream.from([1,2,3])
-// const stream2 = Stream.from([4,5,6,7])
+// stream1.zip(stream2, stream3).subscribe(console.log, console.error);
 
 // Stream.from([1, 2, 3]).repeat(5, (count: number) => count * 1000).debounce(500).subscribe((v) => console.log("debounce", v));
 // Stream.interval(500, 0).throttle(1000).subscribe((v) => console.log("throttle", v));
@@ -44,3 +42,11 @@ stream1.zip(stream2, stream3).subscribe(console.log, console.error);
 // const stream1 = Stream.interval(500, 0).map((value: number) => `stream 1 -> ${value * 2}`).take(5);
 // const stream2 = Stream.interval(500, 0).map((value: number) => `stream 2 -> ${(value * 2) + 1}`).take(10);
 // stream2.merge(stream1).subscribe(console.log);
+
+// [Symbol.asyncIterator] testing:
+const stream = Stream.interval(1000, 0).take(5);
+(async () => {
+    for await (const value of stream) {
+        console.log(value);
+    }
+})()

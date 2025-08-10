@@ -9,19 +9,23 @@ import { promisifyAbortController } from "../util/promisifyAbortController";
 
 export class Stream implements StreamInterface {
   private queue: Queue<unknown>;
-  private streamGenerator: () => AsyncGenerator<unknown, unknown, unknown> = async function* () {}; // yielded type, return type, passed type;
   private unsubscribeController = new AbortController();
   isSubscribed = false;
 
-  constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) {
+  constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) { 
     this.queue = new Queue<unknown>();
     if (generatorFunction) {
-      this.streamGenerator = generatorFunction;
+      this[Symbol.asyncIterator] = generatorFunction;
     } else {
-      this.streamGenerator = async function* () {
+      this[Symbol.asyncIterator] = async function* () {
         yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
       };
     }
+  }
+
+  // gotta add this, or else typescript complains
+  async *[Symbol.asyncIterator](): AsyncGenerator<unknown, unknown, unknown> {
+    return;
   }
 
   serialize(value: unknown): void {
@@ -62,8 +66,8 @@ export class Stream implements StreamInterface {
   }
 
   map<T>(mapFn: (value: T) => unknown) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         yield mapFn(value as T);
       }
@@ -72,8 +76,8 @@ export class Stream implements StreamInterface {
   }
 
   filter<T>(predicateFn: (value: T) => boolean) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         if (predicateFn(value as T)) yield value;
       }
@@ -82,8 +86,8 @@ export class Stream implements StreamInterface {
   }
 
   repeat(count: number, delay?: number | Function) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       for (let i = 0; i < count; i++) {
         yield* oldStream();
         if (delay && i < count - 1) {
@@ -95,14 +99,9 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  // to return the internal generator, for manual consumption
-  generator() {
-    return this.streamGenerator();
-  }
-
   concat(...streams: Stream[]) {
-    let allStreams = [this, ...streams].map((stream) => stream.generator());
-    this.streamGenerator = async function* () {
+    let allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
+    this[Symbol.asyncIterator] = async function* () {
       for (const stream of allStreams) {
         yield* stream;
       }
@@ -112,8 +111,8 @@ export class Stream implements StreamInterface {
 
   // kept changes for splice commented, since i'm fucking skeptical
   merge(...streams: Stream[]) {
-    const allStreams = [this, ...streams].map((stream) => stream.generator());
-    this.streamGenerator = async function* () {
+    const allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
+    this[Symbol.asyncIterator] = async function* () {
       let activePromises = allStreams.map((stream) => stream.next());
       let completedStreams = 0;
       // while (allStreams.length > 0) {
@@ -136,8 +135,8 @@ export class Stream implements StreamInterface {
 
   // kept changes for splice commented, since i'm fucking skeptical
   zip(...streams: Stream[]) {
-    const allStreams = [this, ...streams].map((stream) => stream.generator());
-    this.streamGenerator = async function* () {
+    const allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
+    this[Symbol.asyncIterator] = async function* () {
       let completedStreams = 0;
       let completedStreamsDict: { [key: number]: boolean } = {};
       // while (allStreams.length > 0) {
@@ -157,7 +156,8 @@ export class Stream implements StreamInterface {
       const zippedResults = new Array(allStreams.length).fill(undefined); // similar to zipLatest
       while (completedStreams < allStreams.length) {
         const completedResults = await Promise.all(activePromises); // dropped map, since its slower, instead updated next yields in for-loop monotonically
-        for (let index = 0; index < allStreams.length; index++) { // changed to for-loop instead of map and filter
+        for (let index = 0; index < allStreams.length; index++) {
+          // changed to for-loop instead of map and filter
           const result = completedResults[index];
           if (result.done && completedStreamsDict[index] !== true) {
             completedStreams++;
@@ -173,8 +173,8 @@ export class Stream implements StreamInterface {
   }
 
   zipLatest(...streams: Stream[]) {
-    const allStreams = [this, ...streams].map((stream) => stream.generator());
-    this.streamGenerator = async function* () {
+    const allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
+    this[Symbol.asyncIterator] = async function* () {
       const zippedResults = new Array(allStreams.length).fill(undefined);
       let completedStreams = 0;
       let activePromises = allStreams.map((stream) => stream.next());
@@ -199,8 +199,8 @@ export class Stream implements StreamInterface {
   }
 
   debounce(delay: number) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       let queue = new Queue<unknown>();
       let streamCompleted = false;
       // shedule consumer for oldStream as a microtask, or use IIFE
@@ -224,8 +224,8 @@ export class Stream implements StreamInterface {
   }
 
   throttle(delay: number) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       let queue = new Queue<unknown>();
       let streamCompleted = false;
       // shedule consumer for oldStream as a microtask, or use IIFE
@@ -253,8 +253,8 @@ export class Stream implements StreamInterface {
   }
 
   take(count: number) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       let yieldedCount = 0;
       for await (const value of oldStream()) {
         yield value;
@@ -270,8 +270,8 @@ export class Stream implements StreamInterface {
   }
 
   takeLast(count: number) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       let queue: unknown[] = new Array(count).fill(undefined);
       for await (const value of oldStream()) {
         // doesnt maintain the relative order of emitted values from the stream
@@ -286,8 +286,8 @@ export class Stream implements StreamInterface {
   }
 
   takeUntil(predicateFn: (value: unknown) => boolean) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         yield value;
         if (predicateFn(value) === true) break;
@@ -297,8 +297,8 @@ export class Stream implements StreamInterface {
   }
 
   skip(count: number) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       let skippedCount = 0;
       for await (const value of oldStream()) {
         if (skippedCount < count) {
@@ -312,9 +312,9 @@ export class Stream implements StreamInterface {
   }
 
   skipUntil(predicateFn: (value: unknown) => boolean) {
-    let oldStream = this.streamGenerator;
+    let oldStream = this[Symbol.asyncIterator];
     let conditionMet = false;
-    this.streamGenerator = async function* () {
+    this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         if (predicateFn(value) === true) conditionMet = true;
         if (conditionMet === true) yield value;
@@ -324,11 +324,11 @@ export class Stream implements StreamInterface {
   }
 
   until(predicateFn: (value: unknown) => boolean) {
-    let oldStream = this.streamGenerator;
-    this.streamGenerator = async function* () {
+    let oldStream = this[Symbol.asyncIterator];
+    this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
-        yield value;
         if (predicateFn(value) === true) break;
+        yield value;
       }
     };
     return this;
@@ -348,7 +348,7 @@ export class Stream implements StreamInterface {
     this.isSubscribed = true;
     queueMicrotask(async () => {
       try {
-        const stream = this.streamGenerator();
+        const stream = this[Symbol.asyncIterator]();
         while (true) {
           const { value, done } = await Promise.race([
             stream.next(),
@@ -360,7 +360,7 @@ export class Stream implements StreamInterface {
         onComplete && onComplete();
       } catch (err) {
         if (err instanceof UnsubscribeError) {
-          console.log(`UnsubscribeError: ${err.message}`);
+          console.log(err.message);
         } else onError && onError(err);
       }
     });
