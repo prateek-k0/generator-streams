@@ -15,16 +15,13 @@ export class Stream implements StreamInterface {
   constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) { 
     this.queue = new Queue<unknown>();
     if (generatorFunction) {
-      this[Symbol.asyncIterator] = generatorFunction;
-    } else {
-      this[Symbol.asyncIterator] = async function* () {
-        yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
-      };
+      this[Symbol.asyncIterator] = generatorFunction.bind(this);
     }
   }
 
-  // gotta add this, or else typescript complains
   async *[Symbol.asyncIterator](): AsyncGenerator<unknown, unknown, unknown> {
+    console.log(this);
+    yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
     return;
   }
 
@@ -66,7 +63,7 @@ export class Stream implements StreamInterface {
   }
 
   map<T>(mapFn: (value: T) => unknown) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = (this[Symbol.asyncIterator]).bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         yield mapFn(value as T);
@@ -76,7 +73,7 @@ export class Stream implements StreamInterface {
   }
 
   filter<T>(predicateFn: (value: T) => boolean) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         if (predicateFn(value as T)) yield value;
@@ -86,7 +83,7 @@ export class Stream implements StreamInterface {
   }
 
   repeat(count: number, delay?: number | Function) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for (let i = 0; i < count; i++) {
         yield* oldStream();
@@ -199,13 +196,13 @@ export class Stream implements StreamInterface {
   }
 
   debounce(delay: number) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let queue = new Queue<unknown>();
       let streamCompleted = false;
       // shedule consumer for oldStream as a microtask, or use IIFE
       queueMicrotask(async () => {
-        let timerId: number | null = null;
+        let timerId: NodeJS.Timeout | null = null;
         for await (const value of oldStream()) {
           timerId && clearTimeout(timerId);
           timerId = setTimeout(() => {
@@ -213,6 +210,7 @@ export class Stream implements StreamInterface {
           }, delay);
         }
         // gotta use setTimeout, else it omits last value(s) from the queue :/
+        // because the last timeout is still pending when the stream completes
         setTimeout(() => {
           streamCompleted = true;
         }, delay);
@@ -224,7 +222,7 @@ export class Stream implements StreamInterface {
   }
 
   throttle(delay: number) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let queue = new Queue<unknown>();
       let streamCompleted = false;
@@ -242,6 +240,7 @@ export class Stream implements StreamInterface {
           }
         }
         // gotta use setTimeout, else it omits last value(s) from the queue :/
+        // because the last timeout is still pending when the stream completes
         setTimeout(() => {
           streamCompleted = true;
         }, delay);
@@ -253,7 +252,7 @@ export class Stream implements StreamInterface {
   }
 
   take(count: number) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let yieldedCount = 0;
       for await (const value of oldStream()) {
@@ -270,7 +269,7 @@ export class Stream implements StreamInterface {
   }
 
   takeLast(count: number) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let queue: unknown[] = new Array(count).fill(undefined);
       for await (const value of oldStream()) {
@@ -286,7 +285,7 @@ export class Stream implements StreamInterface {
   }
 
   takeUntil(predicateFn: (value: unknown) => boolean) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         yield value;
@@ -297,7 +296,7 @@ export class Stream implements StreamInterface {
   }
 
   skip(count: number) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let skippedCount = 0;
       for await (const value of oldStream()) {
@@ -312,7 +311,7 @@ export class Stream implements StreamInterface {
   }
 
   skipUntil(predicateFn: (value: unknown) => boolean) {
-    let oldStream = this[Symbol.asyncIterator];
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     let conditionMet = false;
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
@@ -323,19 +322,9 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  until(predicateFn: (value: unknown) => boolean) {
-    let oldStream = this[Symbol.asyncIterator];
-    this[Symbol.asyncIterator] = async function* () {
-      for await (const value of oldStream()) {
-        if (predicateFn(value) === true) break;
-        yield value;
-      }
-    };
-    return this;
-  }
-
   // TODO: create a method to branch streams into 2
 
+  // TODO: create a multiple subscription method, instead of subscribing with just on "onValue"
   subscribe(
     onValue: (value: unknown) => void,
     onError?: (error: unknown) => void,
@@ -348,7 +337,7 @@ export class Stream implements StreamInterface {
     this.isSubscribed = true;
     queueMicrotask(async () => {
       try {
-        const stream = this[Symbol.asyncIterator]();
+        const stream = this[Symbol.asyncIterator].bind(this)();
         while (true) {
           const { value, done } = await Promise.race([
             stream.next(),

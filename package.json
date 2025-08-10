@@ -6,13 +6,16 @@
   "type": "module",
   "esnext": "true",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "build": "tsc --build tsconfig.json && tsc-alias",
     "start": "node dist/index.js"
   },
   "author": "Pratee Katkar",
   "license": "ISC",
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.1",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.8.3"
   }
