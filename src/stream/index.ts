@@ -20,12 +20,11 @@ export class Stream implements StreamInterface {
   }
 
   async *[Symbol.asyncIterator](): AsyncGenerator<unknown, unknown, unknown> {
-    console.log(this);
     yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
     return;
   }
 
-  serialize(value: unknown): void {
+  put(value: unknown): void {
     this.queue.enqueue(value);
   }
 

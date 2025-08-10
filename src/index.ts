@@ -28,10 +28,10 @@ import { Stream } from "./stream/index";
 
 // let value = 1;
 // const stream = new Stream();
-// const unsub = stream.subscribe((value) => console.log('serialize', value));
+// const unsub = stream.subscribe((value) => console.log('put', value));
 
 // const iid = setInterval(() => {
-//     stream.serialize(value++);
+//     stream.put(value++);
 // }, 500);
 
 // setTimeout(() => {
