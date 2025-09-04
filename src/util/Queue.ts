@@ -65,9 +65,10 @@ export class Queue<T> {
     console.log(output);
   }
 
+  // generator support for dequeing values from the queue
   *[Symbol.iterator]() {
-    for(let current = this.front; current !== null; current = current.next) {
-        yield current.data;
+    while(this.isEmpty() === false) {
+        yield this.dequeue();
     }
   }
 }

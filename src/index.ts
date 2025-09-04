@@ -44,9 +44,9 @@ import { Stream } from "./stream/index";
 // stream2.merge(stream1).subscribe(console.log);
 
 // [Symbol.asyncIterator] testing:
-const stream = Stream.interval(1000, 0).take(5);
-(async () => {
-    for await (const value of stream) {
-        console.log(value);
-    }
-})()
+// const stream = Stream.interval(1000, 0).take(5);
+// (async () => {
+//     for await (const value of stream) {
+//         console.log(value);
+//     }
+// })()

@@ -1,7 +1,7 @@
 import { StreamInterface } from "./stream";
 import { awaitableTimeout } from "../util/awaitableTimeout";
 import { raceWithIndex } from "../util/raceWithIndex";
-import { yieldFromQueue } from "../util/generatorFromQueue";
+import { yieldFromQueue } from "../util/yieldFromQueue";
 import { unsettledPromise } from "../util/unsettledPromise";
 import { Queue } from "../util/Queue";
 import { UnsubscribeError } from "../util/UnsubscribeError";
@@ -19,8 +19,11 @@ export class Stream implements StreamInterface {
     }
   }
 
+  // TODO: make it event based, rather than queue based
   async *[Symbol.asyncIterator](): AsyncGenerator<unknown, unknown, unknown> {
-    yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
+    // do we need to use abort controller here?
+    // yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
+    yield* yieldFromQueue(this.queue, () => false); // rather use unsub method to stop the stream
     return;
   }
 
