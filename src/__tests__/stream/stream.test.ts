@@ -43,7 +43,7 @@ describe("Testing Stream class", () => {
     });
 
     it("testing map", async () => {
-        const stream = Stream.of(1, 2, 3, 4, 5).map((x: number) => x * 2);
+        const stream = Stream.of(1, 2, 3, 4, 5).map<number>((x: number) => x * 2);
         const results: any[] = [];
         for await (const value of stream) {
             results.push(value);
@@ -52,7 +52,7 @@ describe("Testing Stream class", () => {
     });
 
     it("testing filter", async () => {
-        const stream = Stream.of(1, 2, 3, 4, 5).filter((x: number) => x % 2 === 0);
+        const stream = Stream.of(1, 2, 3, 4, 5).filter<number>((x: number) => x % 2 === 0);
         const results: any[] = [];
         for await (const value of stream) {
             results.push(value);
@@ -93,8 +93,8 @@ describe("Testing Stream class", () => {
     });
 
     it("testing merge", async () => {
-        const stream1 = Stream.interval(500).take(3).map((value: number) => value * 2);
-        const stream2 = Stream.interval(3000).take(3).map((value: number) => value * 2 + 1);
+        const stream1 = Stream.interval(500).take(3).map<number>((value: number) => value * 2);
+        const stream2 = Stream.interval(3000).take(3).map<number>((value: number) => value * 2 + 1);
         const merged = stream1.merge(stream2);
         const results: any[] = [];
         for await (const value of merged) {

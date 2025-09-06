@@ -26,18 +26,18 @@ import { Stream } from "./stream/index";
 // Stream.interval(500, 0).skipUntil((value) => (value === 5)).subscribe(console.log)
 // Stream.interval(500, 0).take(15).zipLatest(Stream.interval(1000, 0).take(5)).subscribe(console.log);
 
-// let value = 1;
-// const stream = new Stream();
-// const unsub = stream.subscribe((value) => console.log('put', value));
+let value = 1;
+const stream = new Stream();
+const unsub = stream.subscribe((value) => console.log('put', value));
 
-// const iid = setInterval(() => {
-//     stream.put(value++);
-// }, 500);
+const iid = setInterval(() => {
+    stream.put(value++);
+}, 500);
 
-// setTimeout(() => {
-//     unsub();
-//     clearInterval(iid);
-// }, 5000);
+setTimeout(() => {
+    unsub();
+    clearInterval(iid);
+}, 5000);
 
 // const stream1 = Stream.interval(500, 0).map((value: number) => `stream 1 -> ${value * 2}`).take(5);
 // const stream2 = Stream.interval(500, 0).map((value: number) => `stream 2 -> ${(value * 2) + 1}`).take(10);

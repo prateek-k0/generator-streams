@@ -12,7 +12,7 @@ export class Stream implements StreamInterface {
   private unsubscribeController = new AbortController();
   isSubscribed = false;
 
-  constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) { 
+  constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) {
     this.queue = new Queue<unknown>();
     if (generatorFunction) {
       this[Symbol.asyncIterator] = generatorFunction.bind(this);
@@ -31,14 +31,14 @@ export class Stream implements StreamInterface {
     this.queue.enqueue(value);
   }
 
-  static of(...args: unknown[]): Stream {
+  static of(...args: unknown[]): StreamInterface {
     const newStream = new Stream(async function* () {
       yield* args;
     });
     return newStream;
   }
 
-  static from(iterable: unknown[]): Stream {
+  static from(iterable: unknown[]): StreamInterface {
     const newStream = new Stream(async function* () {
       yield* iterable;
     });
@@ -64,8 +64,8 @@ export class Stream implements StreamInterface {
     return newStream;
   }
 
-  map<T>(mapFn: (value: T) => unknown) {
-    let oldStream = (this[Symbol.asyncIterator]).bind(this);
+  map<T>(mapFn: (value: T) => unknown): StreamInterface {
+    let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         yield mapFn(value as T);
@@ -74,7 +74,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  filter<T>(predicateFn: (value: T) => boolean) {
+  filter<T>(predicateFn: (value: T) => boolean): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
@@ -84,7 +84,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  repeat(count: number, delay?: number | Function) {
+  repeat(count: number, delay?: number | Function): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for (let i = 0; i < count; i++) {
@@ -98,7 +98,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  concat(...streams: Stream[]) {
+  concat(...streams: StreamInterface[]): StreamInterface {
     let allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
     this[Symbol.asyncIterator] = async function* () {
       for (const stream of allStreams) {
@@ -109,7 +109,7 @@ export class Stream implements StreamInterface {
   }
 
   // kept changes for splice commented, since i'm fucking skeptical
-  merge(...streams: Stream[]) {
+  merge(...streams: StreamInterface[]): StreamInterface {
     const allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
     this[Symbol.asyncIterator] = async function* () {
       let activePromises = allStreams.map((stream) => stream.next());
@@ -133,7 +133,7 @@ export class Stream implements StreamInterface {
   }
 
   // kept changes for splice commented, since i'm fucking skeptical
-  zip(...streams: Stream[]) {
+  zip(...streams: StreamInterface[]): StreamInterface {
     const allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
     this[Symbol.asyncIterator] = async function* () {
       let completedStreams = 0;
@@ -171,7 +171,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  zipLatest(...streams: Stream[]) {
+  zipLatest(...streams: StreamInterface[]): StreamInterface {
     const allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
     this[Symbol.asyncIterator] = async function* () {
       const zippedResults = new Array(allStreams.length).fill(undefined);
@@ -197,7 +197,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  debounce(delay: number) {
+  debounce(delay: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let queue = new Queue<unknown>();
@@ -223,7 +223,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  throttle(delay: number) {
+  throttle(delay: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let queue = new Queue<unknown>();
@@ -253,7 +253,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  take(count: number) {
+  take(count: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let yieldedCount = 0;
@@ -266,11 +266,11 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  takeFirst(count: number) {
+  takeFirst(count: number): StreamInterface {
     return this.take(count);
   }
 
-  takeLast(count: number) {
+  takeLast(count: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let queue: unknown[] = new Array(count).fill(undefined);
@@ -286,7 +286,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  takeUntil(predicateFn: (value: unknown) => boolean) {
+  takeUntil(predicateFn: (value: unknown) => boolean): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
@@ -297,7 +297,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  skip(count: number) {
+  skip(count: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       let skippedCount = 0;
@@ -312,7 +312,7 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  skipUntil(predicateFn: (value: unknown) => boolean) {
+  skipUntil(predicateFn: (value: unknown) => boolean): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     let conditionMet = false;
     this[Symbol.asyncIterator] = async function* () {
@@ -327,6 +327,8 @@ export class Stream implements StreamInterface {
   // TODO: create a method to branch streams into 2
 
   // TODO: create a multiple subscription method, instead of subscribing with just on "onValue"
+  // add multiple subscribers to a list, and call them all on new value
+  // also add unsubscribe for individual subscribers
   subscribe(
     onValue: (value: unknown) => void,
     onError?: (error: unknown) => void,
