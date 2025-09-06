@@ -296,6 +296,17 @@ export class Stream implements StreamInterface {
     return this;
   }
 
+  peek(fn: (value: unknown) => void): StreamInterface {
+    let oldStream = this[Symbol.asyncIterator].bind(this);
+    this[Symbol.asyncIterator] = async function* () {
+      for await (const value of oldStream()) {
+        fn(value);
+        yield value;
+      }
+    };
+    return this;
+  }
+
   // TODO: create a method to branch streams into 2
 
   // TODO: create a multiple subscription method, instead of subscribing with just on "onValue"

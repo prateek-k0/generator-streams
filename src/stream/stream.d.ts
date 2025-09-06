@@ -19,5 +19,6 @@ export interface StreamInterface extends Streamable {
   takeUntil: (predicateFn: (value: unknown) => boolean) => StreamInterface;
   skip: (count: number) => StreamInterface;
   skipUntil: (predicateFn: (value: unknown) => boolean) => StreamInterface;
+  peek: (fn: (value: unknown) => void) => StreamInterface;
 }
 

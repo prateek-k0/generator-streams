@@ -103,4 +103,13 @@ describe("Testing Stream class", () => {
         }
         expect(results).toEqual([0,2,4,1,3,5]);
     });
+
+    it("testing peek", async () => {
+        const stream = of(1, 2, 3, 4, 5).peek((value) => console.log("peeked", value));
+        const results: any[] = [];
+        for await (const value of stream) {
+            results.push(value);
+        }
+        expect(results).toEqual([1, 2, 3, 4, 5]);
+    });
 });
