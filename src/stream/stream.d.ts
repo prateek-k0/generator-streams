@@ -4,8 +4,8 @@ import { Streamable } from "../streamable/streamable";
 
 export interface StreamInterface extends Streamable {
   put: (value: unknown) => void;
-  map: <T>(fn: (value: T) => unknown) => StreamInterface;
-  filter: <T>(fn: (value: T) => boolean) => StreamInterface;
+  map: (fn: (value: unknown) => unknown) => StreamInterface;
+  filter: (fn: (value: unknown) => boolean) => StreamInterface;
   repeat: (count: number, delay?: number | Function) => StreamInterface;
   concat: (...streams: StreamInterface[]) => StreamInterface;
   merge: (...streams: StreamInterface[]) => StreamInterface;
@@ -19,9 +19,5 @@ export interface StreamInterface extends Streamable {
   takeUntil: (predicateFn: (value: unknown) => boolean) => StreamInterface;
   skip: (count: number) => StreamInterface;
   skipUntil: (predicateFn: (value: unknown) => boolean) => StreamInterface;
-  // static methods
-  // static of: (...args: unknown[]) => StreamInterface;
-  // static from: (iterable: unknown[]) => StreamInterface;
-  // static interval: (ms: number) => StreamInterface;
 }
 

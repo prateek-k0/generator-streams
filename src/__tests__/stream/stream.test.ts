@@ -1,9 +1,10 @@
 import { Stream } from "../../stream/index";
+import { of, from, interval } from "../../stream/creators/index";
 
 describe("Testing Stream class", () => {
-    it("testing Stream.of", async () => {
+    it("testing of creator", async () => {
         const arr = [1, 2, 3, 4, 5];
-        const streamedArray = Stream.of(...arr);
+        const streamedArray = of(...arr);
         const newArray = [];
         for await (const value of streamedArray) {
             newArray.push(value);
@@ -11,9 +12,9 @@ describe("Testing Stream class", () => {
         expect(newArray).toEqual(arr);
     });
 
-    it("testing Stream.from", async () => {
+    it("testing from creator", async () => {
         const arr = [1, 2, 3, 4, 5];
-        const streamedArray = Stream.from(arr);
+        const streamedArray = from(arr);
         const newArray = [];
         for await (const value of streamedArray) {
             newArray.push(value);
@@ -33,8 +34,8 @@ describe("Testing Stream class", () => {
         expect(results).toEqual(arr);
     });
 
-    it("testing stream.interval", async () => {
-        const stream = Stream.interval(100).take(5);
+    it("testing interval", async () => {
+        const stream = interval(100).take(5);
         const results: any[] = [];
         for await (const value of stream) {
             results.push(value);
@@ -43,7 +44,7 @@ describe("Testing Stream class", () => {
     });
 
     it("testing map", async () => {
-        const stream = Stream.of(1, 2, 3, 4, 5).map<number>((x: number) => x * 2);
+        const stream = of(1, 2, 3, 4, 5).map((x) => (x as number) * 2);
         const results: any[] = [];
         for await (const value of stream) {
             results.push(value);
@@ -52,7 +53,7 @@ describe("Testing Stream class", () => {
     });
 
     it("testing filter", async () => {
-        const stream = Stream.of(1, 2, 3, 4, 5).filter<number>((x: number) => x % 2 === 0);
+        const stream = of(1, 2, 3, 4, 5).filter((x) => (x as number) % 2 === 0);
         const results: any[] = [];
         for await (const value of stream) {
             results.push(value);
@@ -61,19 +62,19 @@ describe("Testing Stream class", () => {
     });
 
     it("testing repeat", async () => {
-        const stream = Stream.of(1, 2, 3).repeat(2);
+        const stream = of(1, 2, 3).repeat(2);
         const results: any[] = [];
         for await (const value of stream) {
             results.push(value);
         }
         expect(results).toEqual([1, 2, 3, 1, 2, 3]);
-        const stream2 = Stream.of(4, 5, 6).repeat(2, 100);
+        const stream2 = of(4, 5, 6).repeat(2, 100);
         const results2: any[] = [];
         for await (const value of stream2) {
             results2.push(value);
         }
         expect(results2).toEqual([4, 5, 6, 4, 5, 6]);
-        const stream3 = Stream.of(7,8,9).repeat(2, (count: number) => count * 100);
+        const stream3 = of(7,8,9).repeat(2, (count: number) => count * 100);
         const results3: any[] = [];
         for await (const value of stream3) {
             results3.push(value);
@@ -82,8 +83,8 @@ describe("Testing Stream class", () => {
     });
 
     it("testing concat", async () => {
-        const stream1 = Stream.of(1, 2, 3);
-        const stream2 = Stream.of(4, 5, 6);
+        const stream1 = of(1, 2, 3);
+        const stream2 = of(4, 5, 6);
         const concatenated = stream1.concat(stream2);
         const results: any[] = [];
         for await (const value of concatenated) {
@@ -93,8 +94,8 @@ describe("Testing Stream class", () => {
     });
 
     it("testing merge", async () => {
-        const stream1 = Stream.interval(500).take(3).map<number>((value: number) => value * 2);
-        const stream2 = Stream.interval(3000).take(3).map<number>((value: number) => value * 2 + 1);
+        const stream1 = interval(500).take(3).map((value) => (value as number) * 2);
+        const stream2 = interval(3000).take(3).map((value) => (value as number) * 2 + 1);
         const merged = stream1.merge(stream2);
         const results: any[] = [];
         for await (const value of merged) {

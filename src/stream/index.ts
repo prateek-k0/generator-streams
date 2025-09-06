@@ -7,6 +7,11 @@ import { Queue } from "../util/Queue";
 import { UnsubscribeError } from "../util/UnsubscribeError";
 import { promisifyAbortController } from "../util/promisifyAbortController";
 
+// TODO: make Stream generic with typescript generics
+// export class Stream<T> implements StreamInterface<T> {
+// change all unknown types to T
+
+// stream class that defines operators over streamables
 export class Stream implements StreamInterface {
   private queue: Queue<unknown>;
   private unsubscribeController = new AbortController();
@@ -31,54 +36,21 @@ export class Stream implements StreamInterface {
     this.queue.enqueue(value);
   }
 
-  static of(...args: unknown[]): StreamInterface {
-    const newStream = new Stream(async function* () {
-      yield* args;
-    });
-    return newStream;
-  }
-
-  static from(iterable: unknown[]): StreamInterface {
-    const newStream = new Stream(async function* () {
-      yield* iterable;
-    });
-    return newStream;
-  }
-
-  static interval(period?: number, waitUntil?: number) {
-    period ??= 1000;
-    waitUntil ??= period;
-    let isRunning = true;
-    let value = 0;
-    let firstYieldDone = false;
-
-    const newStream = new Stream(async function* () {
-      // run the loop
-      while (isRunning === true) {
-        await awaitableTimeout(firstYieldDone === false ? waitUntil : period);
-        yield value++;
-        firstYieldDone = true; // set to true, to never use waitUntil again
-      }
-      return;
-    });
-    return newStream;
-  }
-
-  map<T>(mapFn: (value: T) => unknown): StreamInterface {
+  map(mapFn: (value: unknown) => unknown): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
-        yield mapFn(value as T);
+        yield mapFn(value);
       }
     };
     return this;
   }
 
-  filter<T>(predicateFn: (value: T) => boolean): StreamInterface {
+  filter(predicateFn: (value: unknown) => boolean): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
-        if (predicateFn(value as T)) yield value;
+        if (predicateFn(value)) yield value;
       }
     };
     return this;
