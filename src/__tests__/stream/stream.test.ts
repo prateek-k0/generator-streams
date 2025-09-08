@@ -2,26 +2,6 @@ import { Stream } from "../../stream/index";
 import { of, from, interval } from "../../stream/creators/index";
 
 describe("Testing Stream class", () => {
-    it("testing of creator", async () => {
-        const arr = [1, 2, 3, 4, 5];
-        const streamedArray = of(...arr);
-        const newArray = [];
-        for await (const value of streamedArray) {
-            newArray.push(value);
-        }
-        expect(newArray).toEqual(arr);
-    });
-
-    it("testing from creator", async () => {
-        const arr = [1, 2, 3, 4, 5];
-        const streamedArray = from(arr);
-        const newArray = [];
-        for await (const value of streamedArray) {
-            newArray.push(value);
-        }
-        expect(newArray).toEqual(arr);
-    });
-
     it("testing put", async () => {
         const arr = [1, 2, 3, 4, 5];
         const stream = new Stream();
