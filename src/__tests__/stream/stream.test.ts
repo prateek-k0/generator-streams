@@ -116,4 +116,20 @@ describe("Testing Stream class", () => {
         console.log(results, expected);
         expect(results).toEqual(expected);
     });
+
+    it("testing throttle", async () => {
+        const stream1 = interval(100, 0).throttle(300).take(5);
+        const results1: unknown[] = [];
+        for await (const value of stream1) {
+            results1.push(value);
+        }
+        expect(results1).toEqual([0, 3, 6, 9, 12]);
+
+        const stream2 = interval(100, 0).take(4).throttle(200);
+        const results2: unknown[] = [];
+        for await (const value of stream2) {
+            results2.push(value);
+        }
+        expect(results2).toEqual([0, 2]);
+    });
 });

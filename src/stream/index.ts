@@ -16,12 +16,11 @@ export class Stream implements StreamInterface {
   private _queue: Queue<unknown> = new Queue<unknown>();
   private _unsubscribeController = new AbortController();
   private _isSubscribed = false;
+  private _isStopped = false;
 
   // TODO: make it event based, rather than queue based
   async *[Symbol.asyncIterator](): AsyncGenerator<unknown, unknown, unknown> {
-    // do we need to use abort controller here?
-    // yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
-    yield* yieldFromQueue(this._queue, () => false); // rather use unsub method to stop the stream
+    yield* yieldFromQueue(this._queue, () => (this._isStopped === true));
     return;
   }
 
@@ -147,8 +146,8 @@ export class Stream implements StreamInterface {
       for (let i = 0; i < allStreams.length; zippedResults[i] = firstResults[i].value, i++);
       yield zippedResults.slice();
       // advance each generator to the next yield, and store the promises in activePromises array
-      for(let i = 0; i < allStreams.length; activePromises[i] = allStreams[i].next(), i++);
-      
+      for (let i = 0; i < allStreams.length; activePromises[i] = allStreams[i].next(), i++);
+
       // for consecutive yields
       while (completedStreams < allStreams.length) {
         const { result, index } = await raceWithIndex(activePromises);
@@ -191,6 +190,11 @@ export class Stream implements StreamInterface {
     return this;
   }
 
+  awaitableLimit = () =>
+    new Promise<void>((resolve) => {
+      if (this._isStopped === true) resolve();
+    });
+
   throttle(delay: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
@@ -198,25 +202,32 @@ export class Stream implements StreamInterface {
       let streamCompleted = false;
       // schedule consumer for oldStream as a microtask, or use IIFE
       queueMicrotask(async () => {
+        const activatedOldStream = oldStream();
         let emitting: boolean = false;
-        for await (const value of oldStream()) {
-          if (emitting === true) continue;
+        while (this._isStopped === false) {
+          const result: IteratorResult<unknown, unknown> | void = await Promise.race([
+            activatedOldStream.next(),
+            this.awaitableLimit(),
+          ]);
+          // stream is limited, so pause consuming
+          if (this._isStopped || result === undefined) break;
           else {
-            emitting = true;
-            queue.enqueue(value);
-            setTimeout(() => {
-              emitting = false;
-            }, delay);
+            if (result.done) break;
+            if (emitting === true) continue;
+            else {
+              emitting = true;
+              queue.enqueue(result.value);
+              setTimeout(() => {
+                emitting = false;
+              }, delay);
+            }
           }
         }
-        // gotta use setTimeout, else it omits last value(s) from the queue :/
-        // because the last timeout is still pending when the stream completes
-        setTimeout(() => {
-          streamCompleted = true;
-        }, delay);
+        // unlike debounce, throttle can complete immediately
+        streamCompleted = true;
       });
       // yield values from "yieldFromQueue" generator
-      yield* yieldFromQueue(queue, () => streamCompleted === true);
+      yield* yieldFromQueue(queue, () => (streamCompleted === true || this._isStopped === true));
     };
     return this;
   }
@@ -228,7 +239,10 @@ export class Stream implements StreamInterface {
       for await (const value of oldStream()) {
         yield value;
         yieldCount++;
-        if (yieldCount === count) break;
+        if (yieldCount === count) {
+          this._isStopped = true;
+          break;
+        }
       }
     };
     return this;
@@ -259,7 +273,10 @@ export class Stream implements StreamInterface {
     this[Symbol.asyncIterator] = async function* () {
       for await (const value of oldStream()) {
         yield value;
-        if (predicateFn(value) === true) break;
+        if (predicateFn(value) === true) {
+          this._isStopped = true;
+          break;
+        }
       }
     };
     return this;
@@ -318,6 +335,7 @@ export class Stream implements StreamInterface {
     }
     this._unsubscribeController = new AbortController();
     this._isSubscribed = true;
+    this._isStopped = false;
     queueMicrotask(async () => {
       try {
         const stream = this[Symbol.asyncIterator].bind(this)();
