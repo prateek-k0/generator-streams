@@ -6,7 +6,7 @@
   "type": "module",
   "esnext": "true",
   "scripts": {
-    "test": "jest",
+    "test": "jest --coverage",
     "build": "tsc --build tsconfig.build.json && tsc-alias",
     "start": "node dist/index.js"
   },

@@ -13,27 +13,20 @@ import { promisifyAbortController } from "../util/promisifyAbortController";
 
 // stream class that defines operators over streamables
 export class Stream implements StreamInterface {
-  private queue: Queue<unknown>;
-  private unsubscribeController = new AbortController();
-  isSubscribed = false;
-
-  constructor(generatorFunction?: () => AsyncGenerator<unknown, unknown, unknown>) {
-    this.queue = new Queue<unknown>();
-    if (generatorFunction) {
-      this[Symbol.asyncIterator] = generatorFunction.bind(this);
-    }
-  }
+  private _queue: Queue<unknown> = new Queue<unknown>();
+  private _unsubscribeController = new AbortController();
+  private _isSubscribed = false;
 
   // TODO: make it event based, rather than queue based
   async *[Symbol.asyncIterator](): AsyncGenerator<unknown, unknown, unknown> {
     // do we need to use abort controller here?
     // yield* yieldFromQueue(this.queue, () => this.unsubscribeController.signal.aborted === true);
-    yield* yieldFromQueue(this.queue, () => false); // rather use unsub method to stop the stream
+    yield* yieldFromQueue(this._queue, () => false); // rather use unsub method to stop the stream
     return;
   }
 
   put(value: unknown): void {
-    this.queue.enqueue(value);
+    this._queue.enqueue(value);
   }
 
   map(mapFn: (value: unknown) => unknown): StreamInterface {
@@ -153,6 +146,9 @@ export class Stream implements StreamInterface {
       const firstResults = await Promise.all(activePromises);
       for (let i = 0; i < allStreams.length; zippedResults[i] = firstResults[i].value, i++);
       yield zippedResults.slice();
+      // advance each generator to the next yield, and store the promises in activePromises array
+      for(let i = 0; i < allStreams.length; activePromises[i] = allStreams[i].next(), i++);
+      
       // for consecutive yields
       while (completedStreams < allStreams.length) {
         const { result, index } = await raceWithIndex(activePromises);
@@ -162,8 +158,8 @@ export class Stream implements StreamInterface {
         } else {
           zippedResults[index] = result.value;
           activePromises[index] = allStreams[index].next();
+          yield zippedResults.slice();
         }
-        yield zippedResults.slice();
       }
     };
     return this;
@@ -200,7 +196,7 @@ export class Stream implements StreamInterface {
     this[Symbol.asyncIterator] = async function* () {
       let queue = new Queue<unknown>();
       let streamCompleted = false;
-      // shedule consumer for oldStream as a microtask, or use IIFE
+      // schedule consumer for oldStream as a microtask, or use IIFE
       queueMicrotask(async () => {
         let emitting: boolean = false;
         for await (const value of oldStream()) {
@@ -228,11 +224,11 @@ export class Stream implements StreamInterface {
   take(count: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
-      let yieldedCount = 0;
+      let yieldCount = 0;
       for await (const value of oldStream()) {
         yield value;
-        yieldedCount++;
-        if (yieldedCount === count) break;
+        yieldCount++;
+        if (yieldCount === count) break;
       }
     };
     return this;
@@ -272,10 +268,10 @@ export class Stream implements StreamInterface {
   skip(count: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
-      let skippedCount = 0;
+      let skipCount = 0;
       for await (const value of oldStream()) {
-        if (skippedCount < count) {
-          skippedCount++;
+        if (skipCount < count) {
+          skipCount++;
           continue;
         }
         yield value;
@@ -317,18 +313,18 @@ export class Stream implements StreamInterface {
     onError?: (error: unknown) => void,
     onComplete?: () => void
   ) {
-    if (this.isSubscribed === true) {
+    if (this._isSubscribed === true) {
       throw new UnsubscribeError("Stream is already subscribed, cannot subscribe again.");
     }
-    this.unsubscribeController = new AbortController();
-    this.isSubscribed = true;
+    this._unsubscribeController = new AbortController();
+    this._isSubscribed = true;
     queueMicrotask(async () => {
       try {
         const stream = this[Symbol.asyncIterator].bind(this)();
         while (true) {
           const { value, done } = await Promise.race([
             stream.next(),
-            promisifyAbortController(this.unsubscribeController, new UnsubscribeError()),
+            promisifyAbortController(this._unsubscribeController, new UnsubscribeError()),
           ]);
           if (done) break;
           onValue(value);
@@ -341,11 +337,11 @@ export class Stream implements StreamInterface {
       }
     });
     return () => {
-      if (this.isSubscribed === false) {
+      if (this._isSubscribed === false) {
         throw new UnsubscribeError("Stream is not subscribed, cannot unsubscribe.");
       }
-      this.isSubscribed = false;
-      this.unsubscribeController.abort();
+      this._isSubscribed = false;
+      this._unsubscribeController.abort();
     };
   }
 }

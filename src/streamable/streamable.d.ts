@@ -4,8 +4,8 @@
 export interface Streamable {
   subscribe: (
     onValue: (value: unknown) => void,
-    onError: (error: unknown) => void | undefined,
-    onComplete: () => void | undefined
+    onError?: (error: unknown) => void | undefined,
+    onComplete?: () => void | undefined
   ) => () => void;
   [Symbol.asyncIterator]: () => AsyncGenerator<unknown, unknown, unknown>;  // AsyncGenerator<yielded type, return type, passed type>;
 }

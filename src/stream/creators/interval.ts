@@ -9,7 +9,8 @@ export function interval(period?: number, waitUntil?: number): StreamInterface {
   let value = 0;
   let firstYieldDone = false;
 
-  const newStream = new Stream(async function* () {
+  const newStream = new Stream();
+  newStream[Symbol.asyncIterator] = async function* () {
     // run the loop
     while (isRunning === true) {
       await awaitableTimeout(firstYieldDone === false ? waitUntil : period);
@@ -17,6 +18,6 @@ export function interval(period?: number, waitUntil?: number): StreamInterface {
       firstYieldDone = true; // set to true, to never use waitUntil again
     }
     return;
-  });
+  }
   return newStream;
 }
