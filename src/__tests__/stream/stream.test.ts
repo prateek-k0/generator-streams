@@ -14,15 +14,6 @@ describe("Testing Stream class", () => {
         expect(results).toEqual(arr);
     });
 
-    it("testing interval", async () => {
-        const stream = interval(100).take(5);
-        const results: unknown[] = [];
-        for await (const value of stream) {
-            results.push(value);
-        }
-        expect(results).toEqual([0, 1, 2, 3, 4]);
-    });
-
     it("testing map", async () => {
         const stream = of(1, 2, 3, 4, 5).map((x) => (x as number) * 2);
         const results: unknown[] = [];
@@ -146,5 +137,59 @@ describe("Testing Stream class", () => {
             results2.push(value);
         }
         expect(results2).toEqual([4]);
+    });
+
+    it("testing take", async () => {
+        const stream = interval(100, 0).take(5);
+        const results: unknown[] = [];
+        for await (const value of stream) {
+            results.push(value);
+        }
+        expect(results).toEqual([0, 1, 2, 3, 4]);
+    });
+
+    it("testing takeFirst", async () => {
+        const stream = from([1,2,3,4,5]).takeFirst(3);
+        const results: unknown[] = [];
+        for await (const value of stream) {
+            results.push(value);
+        }
+        expect(results).toEqual([1,2,3]);
+    });
+
+    it("testing takeLast", async () => {
+        const stream = from([1,2,3,4,5]).takeLast(3);
+        const results: unknown[] = [];
+        for await (const value of stream) {
+            results.push(value);
+        }
+        expect(results).toEqual([3,4,5]);
+    });
+
+    it("testing takeUntil", async () => {
+        const stream = interval(100, 0).takeUntil((value) => (value as number) === 5);
+        const results: unknown[] = [];
+        for await (const value of stream) {
+            results.push(value);
+        }
+        expect(results).toEqual([0, 1, 2, 3, 4, 5]);
+    });
+
+    it("testing skip", async () => {
+        const stream = interval(100, 0).skip(3).take(5);
+        const results: unknown[] = [];
+        for await (const value of stream) {
+            results.push(value);
+        }
+        expect(results).toEqual([3, 4, 5, 6, 7]);
+    });
+
+    it("testing skipUntil", async () => {
+        const stream = interval(100, 0).skipUntil((value) => (value as number) === 5).take(5);
+        const results: unknown[] = [];
+        for await (const value of stream) {
+            results.push(value);
+        }
+        expect(results).toEqual([5, 6, 7, 8, 9]);
     });
 });

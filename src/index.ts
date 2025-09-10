@@ -3,11 +3,11 @@ import { of, from, interval } from "./stream/creators/index";
 
 // from([1, 2, 3]).repeat(3, 1000).subscribe(console.log);
 
-// const unsubscribe = interval(1000, 0).filter<number>((value) => value % 2 === 0).subscribe(console.log);
+const unsubscribe = interval(500, 0).filter((value) => (value as number) % 2 === 0).subscribe(console.log);
 
-// setTimeout(() => {
-//     unsubscribe();
-// }, 5000);
+setTimeout(() => {
+    unsubscribe();
+}, 5000);
 
 // from([1,2,3]).concat(from([4,5,6])).subscribe(console.log);
 // const stream1 = interval(1000, 0).take(10);
@@ -16,7 +16,7 @@ import { of, from, interval } from "./stream/creators/index";
 
 // stream1.zip(stream2, stream3).take(5).take(2).subscribe(console.log, console.error);
 
-from([1, 2, 3]).repeat(5, (count: number) => count * 1000).debounce(500).subscribe((v) => console.log("debounce", v));
+// from([1, 2, 3]).repeat(5, (count: number) => count * 1000).debounce(500).subscribe((v) => console.log("debounce", v));
 // interval(500, 0).throttle(2000).take(5).subscribe((v) => console.log("throttle", v));
 
 // interval(500, 0).take(5).subscribe(console.log);

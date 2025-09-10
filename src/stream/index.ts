@@ -5,7 +5,6 @@ import { yieldFromQueue } from "../util/yieldFromQueue";
 import { unsettledPromise } from "../util/unsettledPromise";
 import { Queue } from "../util/Queue";
 import { UnsubscribeError } from "../util/UnsubscribeError";
-import { promisifyAbortController } from "../util/promisifyAbortController";
 import { awaitablePredicate } from "../util/awaitablePredicate";
 
 // TODO: make Stream generic with typescript generics
@@ -15,7 +14,6 @@ import { awaitablePredicate } from "../util/awaitablePredicate";
 // stream class that defines operators over streamables
 export class Stream implements StreamInterface {
   private _queue: Queue<unknown> = new Queue<unknown>();
-  private _unsubscribeController = new AbortController();
   private _isSubscribed = false;
   private _isStopped = false;
 
@@ -180,13 +178,11 @@ export class Stream implements StreamInterface {
             awaitablePredicate(() => this._isStopped === true), // to break out of the loop if stream is stopped
           ]);
           if (result === undefined) break;
-          else {
-            if (result.done) break;
-            timerId && clearTimeout(timerId);
-              timerId = setTimeout(() => {
-                queue.enqueue(result.value);
-              }, delay);
-          }
+          else if (result.done) break;
+          timerId && clearTimeout(timerId);
+          timerId = setTimeout(() => {
+            queue.enqueue(result.value);
+          }, delay);
         }
         // gotta use setTimeout, else it omits last value(s) from the queue :/
         // because the last timeout is still pending when the stream completes
@@ -216,17 +212,13 @@ export class Stream implements StreamInterface {
           ]);
           // stream is limited, so pause consuming
           if (result === undefined) break;
-          else {
-            if (result.done) break;
-            if (emitting === true) continue;
-            else {
-              emitting = true;
-              queue.enqueue(result.value);
-              setTimeout(() => {
-                emitting = false;
-              }, delay);
-            }
-          }
+          else if (result.done) break;
+          else if (emitting === true) continue;
+          emitting = true;
+          queue.enqueue(result.value);
+          setTimeout(() => {
+            emitting = false;
+          }, delay);
         }
         // unlike debounce, throttle can complete immediately
         streamCompleted = true;
@@ -338,25 +330,26 @@ export class Stream implements StreamInterface {
     if (this._isSubscribed === true) {
       throw new UnsubscribeError("Stream is already subscribed, cannot subscribe again.");
     }
-    this._unsubscribeController = new AbortController();
-    this._isSubscribed = true;
-    this._isStopped = false;
     queueMicrotask(async () => {
+      this._isSubscribed = true;
+      this._isStopped = false;
       try {
         const stream = this[Symbol.asyncIterator].bind(this)();
-        while (true) {
-          const { value, done } = await Promise.race([
+        while (this._isStopped === false) {
+          const result: IteratorResult<unknown, unknown> | void = await Promise.race([
             stream.next(),
-            promisifyAbortController(this._unsubscribeController, new UnsubscribeError()),
+            awaitablePredicate(() => this._isStopped === true), // to break out of the loop if stream is stopped
           ]);
-          if (done) break;
-          onValue(value);
+          if (result === undefined) break;
+          else if (result.done) break;
+          onValue(result.value);
         }
         onComplete && onComplete();
       } catch (err) {
-        if (err instanceof UnsubscribeError) {
-          console.log(err.message);
-        } else onError && onError(err);
+        onError && onError(err);
+      } finally {
+        this._isSubscribed = false;
+        this._isStopped = true;
       }
     });
     return () => {
@@ -364,7 +357,7 @@ export class Stream implements StreamInterface {
         throw new UnsubscribeError("Stream is not subscribed, cannot unsubscribe.");
       }
       this._isSubscribed = false;
-      this._unsubscribeController.abort();
+      this._isStopped = true;
     };
   }
 }
