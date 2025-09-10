@@ -16,8 +16,8 @@ import { of, from, interval } from "./stream/creators/index";
 
 // stream1.zip(stream2, stream3).take(5).take(2).subscribe(console.log, console.error);
 
-// from([1, 2, 3]).repeat(5, (count: number) => count * 1000).debounce(500).subscribe((v) => console.log("debounce", v));
-interval(500, 0).throttle(2000).take(5).subscribe((v) => console.log("throttle", v));
+from([1, 2, 3]).repeat(5, (count: number) => count * 1000).debounce(500).subscribe((v) => console.log("debounce", v));
+// interval(500, 0).throttle(2000).take(5).subscribe((v) => console.log("throttle", v));
 
 // interval(500, 0).take(5).subscribe(console.log);
 // interval(500, 0).take(5).takeLast(3).subscribe(console.log);

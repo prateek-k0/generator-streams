@@ -21,7 +21,7 @@ export class Stream implements StreamInterface {
 
   // TODO: make it event based, rather than queue based
   async *[Symbol.asyncIterator](): AsyncGenerator<unknown, unknown, unknown> {
-    yield* yieldFromQueue(this._queue, () => (this._isStopped === true));
+    yield* yieldFromQueue(this._queue, () => this._isStopped === true);
     return;
   }
 
@@ -172,12 +172,21 @@ export class Stream implements StreamInterface {
       let streamCompleted = false;
       // shedule consumer for oldStream as a microtask, or use IIFE
       queueMicrotask(async () => {
+        const activatedOldStream = oldStream();
         let timerId: NodeJS.Timeout | null = null;
-        for await (const value of oldStream()) {
-          timerId && clearTimeout(timerId);
-          timerId = setTimeout(() => {
-            queue.enqueue(value);
-          }, delay);
+        while (this._isStopped === false) {
+          const result: IteratorResult<unknown, unknown> | void = await Promise.race([
+            activatedOldStream.next(),
+            awaitablePredicate(() => this._isStopped === true), // to break out of the loop if stream is stopped
+          ]);
+          if (result === undefined) break;
+          else {
+            if (result.done) break;
+            timerId && clearTimeout(timerId);
+              timerId = setTimeout(() => {
+                queue.enqueue(result.value);
+              }, delay);
+          }
         }
         // gotta use setTimeout, else it omits last value(s) from the queue :/
         // because the last timeout is still pending when the stream completes
@@ -186,7 +195,7 @@ export class Stream implements StreamInterface {
         }, delay);
       });
       // yield values from "yieldFromQueue" generator
-      yield* yieldFromQueue(queue, () => streamCompleted === true);
+      yield* yieldFromQueue(queue, () => streamCompleted === true || this._isStopped === true);
     };
     return this;
   }
@@ -206,7 +215,7 @@ export class Stream implements StreamInterface {
             awaitablePredicate(() => this._isStopped === true), // to break out of the loop if stream is stopped
           ]);
           // stream is limited, so pause consuming
-          if (this._isStopped || result === undefined) break;
+          if (result === undefined) break;
           else {
             if (result.done) break;
             if (emitting === true) continue;
@@ -223,7 +232,7 @@ export class Stream implements StreamInterface {
         streamCompleted = true;
       });
       // yield values from "yieldFromQueue" generator
-      yield* yieldFromQueue(queue, () => (streamCompleted === true || this._isStopped === true));
+      yield* yieldFromQueue(queue, () => streamCompleted === true || this._isStopped === true);
     };
     return this;
   }

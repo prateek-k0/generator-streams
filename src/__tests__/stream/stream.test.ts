@@ -131,4 +131,20 @@ describe("Testing Stream class", () => {
         }
         expect(results2).toEqual([0, 2]);
     });
+
+    it("testing debounce", async () => {
+        const stream1 = from([1, 2, 3]).repeat(5, (count: number) => count * 1000).debounce(500);
+        const results1: unknown[] = [];
+        for await (const value of stream1) {
+            results1.push(value);
+        }
+        expect(results1).toEqual([3,3,3,3,3]);  // 3 after each repettion, after nth iteration of delay in between
+
+        const stream2 = from([1, 2, 3, 4]).debounce(200);
+        const results2: unknown[] = [];
+        for await (const value of stream2) {
+            results2.push(value);
+        }
+        expect(results2).toEqual([4]);
+    });
 });
