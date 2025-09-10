@@ -6,6 +6,7 @@ import { unsettledPromise } from "../util/unsettledPromise";
 import { Queue } from "../util/Queue";
 import { UnsubscribeError } from "../util/UnsubscribeError";
 import { promisifyAbortController } from "../util/promisifyAbortController";
+import { awaitablePredicate } from "../util/awaitablePredicate";
 
 // TODO: make Stream generic with typescript generics
 // export class Stream<T> implements StreamInterface<T> {
@@ -190,11 +191,6 @@ export class Stream implements StreamInterface {
     return this;
   }
 
-  awaitableLimit = () =>
-    new Promise<void>((resolve) => {
-      if (this._isStopped === true) resolve();
-    });
-
   throttle(delay: number): StreamInterface {
     let oldStream = this[Symbol.asyncIterator].bind(this);
     this[Symbol.asyncIterator] = async function* () {
@@ -207,7 +203,7 @@ export class Stream implements StreamInterface {
         while (this._isStopped === false) {
           const result: IteratorResult<unknown, unknown> | void = await Promise.race([
             activatedOldStream.next(),
-            this.awaitableLimit(),
+            awaitablePredicate(() => this._isStopped === true), // to break out of the loop if stream is stopped
           ]);
           // stream is limited, so pause consuming
           if (this._isStopped || result === undefined) break;

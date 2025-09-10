@@ -113,7 +113,6 @@ describe("Testing Stream class", () => {
             results.push(value);
         }
         const expected = [['a', 0], ['b', 0], ['c', 0], ['c', 1], ['c', 2], ['c', 3], ['c', 4]];
-        console.log(results, expected);
         expect(results).toEqual(expected);
     });
 
