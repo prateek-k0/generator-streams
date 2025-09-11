@@ -1,5 +1,6 @@
 import { Stream } from "../../stream/index";
 import { of, from, interval } from "../../stream/creators/index";
+import { awaitableTimeout } from "../../util/awaitableTimeout";
 
 describe("Testing Stream class", () => {
     it("testing put", async () => {
@@ -192,4 +193,15 @@ describe("Testing Stream class", () => {
         }
         expect(results).toEqual([5, 6, 7, 8, 9]);
     });
+
+    it("testing subsribe and unsubscribe", async () => {
+        const stream = interval(50, 0);
+        const results: unknown[] = [];
+        const unsubscribe = stream.subscribe((value) => {
+            results.push(value);
+        });
+        await awaitableTimeout(250);
+        unsubscribe();
+        expect(results.length).toBeGreaterThanOrEqual(4);
+    })
 });

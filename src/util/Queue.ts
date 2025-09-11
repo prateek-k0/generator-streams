@@ -2,6 +2,7 @@ class QueueNode<T> {
   data: T;
   prev: QueueNode<T> | null;
   next: QueueNode<T> | null;
+  
 
   constructor(data: T) {
     this.data = data;
@@ -13,10 +14,12 @@ class QueueNode<T> {
 export class Queue<T> {
   front: QueueNode<T> | null;
   rear: QueueNode<T> | null;
+  length: number = 0;
 
   constructor() {
     this.front = null;
     this.rear = null;
+    this.length = 0;
   }
 
   isEmpty() {
@@ -32,6 +35,7 @@ export class Queue<T> {
       newNode.prev = this.rear;
       this.rear = newNode;
     }
+    this.length++;
   }
 
   dequeue() {
@@ -46,6 +50,7 @@ export class Queue<T> {
       } else {
         this.front.prev = null;
       }
+      this.length--;
       return removedData;
     }
   }
@@ -62,7 +67,7 @@ export class Queue<T> {
       current = current.next;
     }
     output += "null";
-    console.log(output);
+    return output;
   }
 
   // generator support for dequeing values from the queue
