@@ -1,9 +1,26 @@
 class QueueNode<T> {
+  /**
+   * The data stored in the node.
+   * @type {T}
+   */
   data: T;
-  prev: QueueNode<T> | null;
-  next: QueueNode<T> | null;
-  
 
+  /**
+   * Reference to the previous node in the queue.
+   * @type {QueueNode<T> | null}
+   */
+  prev: QueueNode<T> | null;
+
+  /**
+   * Reference to the next node in the queue.
+   * @type {QueueNode<T> | null}
+   */
+  next: QueueNode<T> | null;
+
+  /**
+   * Creates a new QueueNode.
+   * @param {T} data - The data to store in the node.
+   */
   constructor(data: T) {
     this.data = data;
     this.prev = null;
@@ -16,16 +33,27 @@ export class Queue<T> {
   rear: QueueNode<T> | null;
   length: number = 0;
 
+  /**
+   * Creates a new empty Queue.
+   */
   constructor() {
     this.front = null;
     this.rear = null;
     this.length = 0;
   }
 
+  /**
+   * Checks if the queue is empty.
+   * @returns {boolean} True if the queue is empty, false otherwise.
+   */
   isEmpty() {
     return this.front === null;
   }
 
+  /**
+   * Adds an item to the rear of the queue.
+   * @param {T} data - The data to enqueue.
+   */
   enqueue(data: T) {
     const newNode = new QueueNode(data);
     if (this.isEmpty()) {
@@ -38,6 +66,10 @@ export class Queue<T> {
     this.length++;
   }
 
+  /**
+   * Removes and returns the item at the front of the queue.
+   * @returns {T | null} The dequeued data, or null if the queue is empty.
+   */
   dequeue() {
     if (this.isEmpty()) {
       console.error("Queue is empty!");
@@ -55,10 +87,18 @@ export class Queue<T> {
     }
   }
 
+  /**
+   * Returns the item at the front of the queue without removing it.
+   * @returns {T | null} The front data, or null if the queue is empty.
+   */
   peek() {
     return this.isEmpty() ? null : this.front?.data;
   }
 
+  /**
+   * Returns a string representation of the queue.
+   * @returns {string} The queue contents as a string.
+   */
   display() {
     let current = this.front;
     let output = "";
@@ -70,7 +110,11 @@ export class Queue<T> {
     return output;
   }
 
-  // generator support for dequeing values from the queue
+  /**
+   * Generator for dequeuing values from the queue.
+   * Yields each item in the queue until it is empty.
+   * @returns {Generator<T, void, unknown>}
+   */
   *[Symbol.iterator]() {
     while(this.isEmpty() === false) {
         yield this.dequeue();

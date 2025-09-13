@@ -3,6 +3,15 @@
 import { Queue } from "./Queue";
 import { yieldControl } from "./yieldControl";
 
+/**
+ * Asynchronously yields values from a queue until a specified condition is met.
+ * 
+ * @param {Queue<unknown>} queue - The queue to yield values from.
+ * @param {(q: Queue<unknown>) => boolean} until - A predicate function that determines when to stop yielding.
+ * @yields {unknown} - Values dequeued from the queue.
+ * @async
+ * @generator
+ */
 export async function* yieldFromQueue(queue: Queue<unknown>, until: (q: Queue<unknown>) => boolean) {
     while(until(queue) === false) {     // loop until the predicate becomes true
         if(queue.isEmpty() === false) yield queue.dequeue();
