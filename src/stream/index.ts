@@ -109,11 +109,11 @@ export class Stream implements StreamInterface {
   merge(...streams: StreamInterface[]): StreamInterface {
     const allStreams = [this, ...streams].map((stream) => stream[Symbol.asyncIterator]());
     this[Symbol.asyncIterator] = async function* () {
-      let activePromises = allStreams.map((stream) => stream.next());
+      let activePromises: Promise<IteratorResult<unknown>>[] = allStreams.map((stream) => stream.next());
       let completedStreams = 0;
       // while (allStreams.length > 0) {
       while (completedStreams < allStreams.length) {
-        const { result, index } = await raceWithIndex(activePromises);
+        const { result, index } = await raceWithIndex<IteratorResult<unknown>>(activePromises);
         if (result.done) {
           // we dont need it anymore, since we are using unsettledPromise and completedStreams variable
           // activePromises.splice(index, 1); // remove the result from active promises
@@ -183,7 +183,7 @@ export class Stream implements StreamInterface {
     this[Symbol.asyncIterator] = async function* () {
       const zippedResults = new Array(allStreams.length).fill(undefined);
       let completedStreams = 0;
-      let activePromises = allStreams.map((stream) => stream.next());
+      let activePromises: Promise<IteratorResult<unknown>>[] = allStreams.map((stream) => stream.next());
       // for first yield, zipLatest waits for all streams to emit atleast once
       const firstResults = await Promise.all(activePromises);
       for (let i = 0; i < allStreams.length; zippedResults[i] = firstResults[i].value, i++);
@@ -193,7 +193,7 @@ export class Stream implements StreamInterface {
 
       // for consecutive yields
       while (completedStreams < allStreams.length) {
-        const { result, index } = await raceWithIndex(activePromises);
+        const { result, index } = await raceWithIndex<IteratorResult<unknown>>(activePromises);
         if (result.done) {
           completedStreams++;
           activePromises[index] = unsettledPromise();

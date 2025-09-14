@@ -3,12 +3,12 @@
 /**
  * Returns a promise that resolves with the result and index of the first settled promise in the iterable.
  *
- * @param {Promise<IteratorResult<unknown>>[]} promiseIterable - An array of promises to race.
- * @returns {Promise<{ result: IteratorResult<unknown>; index: number }>} A promise resolving to the result and index of the first settled promise.
+ * @param {Promise<T>[]} promiseIterable - An array of promises to race.
+ * @returns {Promise<{ result: T; index: number }>} A promise resolving to the result and index of the first settled promise.
  */
-export function raceWithIndex(
-  promiseIterable: Promise<IteratorResult<unknown>>[]
-): Promise<{ result: IteratorResult<unknown>; index: number }> {
+export function raceWithIndex<T>(
+  promiseIterable: Promise<T>[]
+): Promise<{ result: T; index: number }> {
   return new Promise((resolve, reject) => {
     promiseIterable.forEach((promise, index) => {
       Promise.resolve(promise)

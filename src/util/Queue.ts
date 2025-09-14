@@ -46,7 +46,7 @@ export class Queue<T> {
    * Checks if the queue is empty.
    * @returns {boolean} True if the queue is empty, false otherwise.
    */
-  isEmpty() {
+  isEmpty(): boolean {
     return this.front === null;
   }
 
@@ -70,7 +70,7 @@ export class Queue<T> {
    * Removes and returns the item at the front of the queue.
    * @returns {T | null} The dequeued data, or null if the queue is empty.
    */
-  dequeue() {
+  dequeue(): T | null {
     if (this.isEmpty()) {
       console.error("Queue is empty!");
       return null;
@@ -91,15 +91,15 @@ export class Queue<T> {
    * Returns the item at the front of the queue without removing it.
    * @returns {T | null} The front data, or null if the queue is empty.
    */
-  peek() {
-    return this.isEmpty() ? null : this.front?.data;
+  peek(): T | null {
+    return this.isEmpty() ? null : (this.front?.data || null);
   }
 
   /**
    * Returns a string representation of the queue.
    * @returns {string} The queue contents as a string.
    */
-  display() {
+  display(): string {
     let current = this.front;
     let output = "";
     while (current) {

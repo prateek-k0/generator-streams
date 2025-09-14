@@ -4,6 +4,6 @@
  * @param {number} [delay=1000] - The delay in milliseconds before the promise resolves.
  * @returns {Promise<void>} A promise that resolves after the delay.
  */
-export const awaitableTimeout = (delay = 1000) => new Promise((resolve) => {
+export const awaitableTimeout = (delay: number = 1000): Promise<void> => new Promise((resolve) => {
     setTimeout(resolve, delay);
 });

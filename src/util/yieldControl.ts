@@ -3,4 +3,4 @@
  *
  * @returns {Promise<void>} A promise that resolves on the next event loop tick.
  */
-export const yieldControl = () => new Promise((resolve) => setTimeout(resolve));
+export const yieldControl = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
